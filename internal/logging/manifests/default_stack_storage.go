@@ -33,52 +33,13 @@ func buildManagedLokistackSpec(opts Options) (lokiv1.LokiStackSpec, error) {
 	}
 
 	// Tenants Read & Write RBAC
-	roles := []lokiv1.RoleSpec{}
-	rolesBinding := []lokiv1.RoleBindingsSpec{}
-	for _, tenant := range opts.DefaultStack.Storage.Tenants {
-		role := lokiv1.RoleSpec{
-			Name:        fmt.Sprintf("%s-logs", tenant),
-			Resources:   []string{"logs"},
-			Permissions: []lokiv1.PermissionType{"read", "write"},
-			Tenants:     []string{tenant},
-		}
-		roles = append(roles, role)
-
-		roleBinding := lokiv1.RoleBindingsSpec{
-			Name:  fmt.Sprintf("%s-logs", tenant),
-			Roles: []string{role.Name},
-			Subjects: []lokiv1.Subject{{
-				Kind: "group",
-				Name: tenant,
-			}},
-		}
-		rolesBinding = append(rolesBinding, roleBinding)
-	}
-	// Admin Read RBAC
-	adminRole := lokiv1.RoleSpec{
-		Name:        "cluster-reader",
-		Resources:   []string{"logs"},
-		Permissions: []lokiv1.PermissionType{"read"},
-		Tenants:     opts.DefaultStack.Storage.Tenants,
-	}
-	roles = append(roles, adminRole)
-	adminRoleBinding := lokiv1.RoleBindingsSpec{
-		Name:  "cluster-reader",
-		Roles: []string{adminRole.Name},
-		Subjects: []lokiv1.Subject{{
-			Kind: "group",
-			Name: mcoaAdmin,
-		}},
-	}
-	rolesBinding = append(rolesBinding, adminRoleBinding)
-
 	tenants := &lokiv1.TenantsSpec{
-		Mode:           lokiv1.Static,
+		Mode:           lokiv1.Dynamic,
 		Authentication: tenantsAuthentication,
 		Authorization: &lokiv1.AuthorizationSpec{
-			Roles:        roles,
-			RoleBindings: rolesBinding,
-			OPA:          nil,
+			OPA: &lokiv1.OPASpec{
+				URL: fmt.Sprintf("http://%s.%s.svc.cluster.local:8181", addoncfg.OpaServiceName, addoncfg.InstallNamespace),
+			},
 		},
 	}
 
@@ -148,8 +109,9 @@ func BuildSSALokiStack(opts Options, lsName, placementNamespace, placementName s
 		lokistackSpec.StorageClassName = existingLS.Spec.StorageClassName
 		lokistackSpec.Storage = existingLS.Spec.Storage
 	}
-	// TODO (JoaoBraveCoding): This is a hack for us not being able to create LS without OPA
-	lokistackSpec.Tenants.Authorization.OPA = &lokiv1.OPASpec{}
+	// TODO (JoaoBraveCoding): This is a hack for us not being able to create LS without RB
+	lokistackSpec.Tenants.Authorization.RoleBindings = []lokiv1.RoleBindingsSpec{}
+	lokistackSpec.Tenants.Authorization.Roles = []lokiv1.RoleSpec{}
 
 	return &lokiv1.LokiStack{
 		TypeMeta: metav1.TypeMeta{

@@ -11,6 +11,7 @@ const (
 	LabelOCMAddonName = "open-cluster-management.io/addon-name"
 	InstallNamespace  = "open-cluster-management-observability"
 	HubNamespace      = "local-cluster"
+	OpaServiceName    = "mcoa-opa"
 
 	McoaChartDir    = "manifests/charts/mcoa"
 	MetricsChartDir = "manifests/charts/mcoa/charts/metrics"

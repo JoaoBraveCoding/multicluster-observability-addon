@@ -11,6 +11,12 @@ resources:
 - resources/cluster-management-addon.yaml
 - resources/addondeploymentconfig.yaml
 - resources/root_certificates.yaml
+- resources/opa_deployment.yaml
+- resources/opa_role_binding.yaml
+- resources/opa_role.yaml
+- resources/opa_rules.yaml
+- resources/opa_service_account.yaml
+- resources/opa_service.yaml
 - crds/observability.openshift.io_clusterlogforwarders.yaml
 - crds/opentelemetry.io_opentelemetrycollectors.yaml
 - crds/opentelemetry.io_instrumentations.yaml

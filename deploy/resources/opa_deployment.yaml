@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcoa-opa
+  namespace: open-cluster-management-observability
+  labels:
+    app: mcoa-opa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mcoa-opa
+  template:
+    metadata:
+      labels:
+        app: mcoa-opa
+    spec:
+      serviceAccountName: mcoa-opa
+      containers:
+      - name: kube-mgmt
+        image: openpolicyagent/kube-mgmt:9.1.0
+        args:
+          - --replicate-crd=observability.openshift.io/v1alpha1/observabilityaccesspolicies
+      - name: opa
+        image: openpolicyagent/opa:1.5.1
+        ports:
+        - name: http
+          containerPort: 8181
+        args:
+          - "run"
+          - "--server"
+          - "--addr=:8181"
+          - "--log-level=info"
+          - "/policies/policy.rego"
+          - "--set=default_decision=observability/authz/allow"
+        livenessProbe:
+          httpGet:
+            path: /health?plugins
+            port: 8181
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health?plugins
+            port: 8181
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: opa-policy-volume
+          mountPath: /policies
+          readOnly: true
+      volumes:
+      - name: opa-policy-volume
+        configMap:
+          name: opa-authz-policy

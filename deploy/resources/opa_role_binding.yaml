@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcoa-opa
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mcoa-opa
+subjects:
+- kind: ServiceAccount
+  name: mcoa-opa
+  namespace: open-cluster-management-observability

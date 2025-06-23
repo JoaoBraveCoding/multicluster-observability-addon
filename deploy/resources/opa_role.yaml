@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcoa-opa
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["observability.openshift.io"]
+  resources: ["observabilityaccesspolicies"]
+  verbs: ["get", "list", "watch"]

@@ -98,3 +98,29 @@ addon-deploy: download-crds
 .PHONY: addon-undeploy
 addon-undeploy: download-crds
 	$(KUSTOMIZE) build ./deploy | kubectl delete -f -
+
+.PHONY: generate
+generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+.PHONY: manifests
+manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+.PHONY: generate-all
+generate-all: generate manifests ## Generate both API code and CRDs
+
+.PHONY: test-rego fmt-rego lint-rego
+
+# Test all Rego files
+test-rego:
+	opa test rego/authz/*.rego
+
+# Format Rego files
+fmt-rego:
+	opa fmt --write rego/authz/*.rego
+
+# Lint Rego files
+lint-rego:
+	opa test --verbose rego/authz/*.rego
+	opa fmt --list rego/authz/*.rego
