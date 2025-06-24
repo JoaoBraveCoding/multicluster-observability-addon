@@ -13,18 +13,45 @@ mock_policy := {
 			"resourceScope": "application",
 			"tenants": ["tenant1"],
 			"namespaces": ["test-namespace"],
-			"applicationSignals": ["metrics", "logs"],
+			"signals": ["metrics", "logs"],
+			"permission": ["read"]
+		}],
+	}
+}
+mock_write_policy := {
+	"spec": {
+		"subjects": [
+			{"kind": "Group", "name": "writers"},
+		],
+		"permissions": [{
+			"resourceScope": "infrastructure",
+			"tenants": ["tenant1"],
+			"signals": ["metrics", "logs"],
+			"permission": ["write"]
 		}],
 	}
 }
 
-mock_infra_policy := {
+mock_read_infra_policy := {
 	"spec": {
 		"subjects": [{"kind": "User", "name": "infra-user"}],
 		"permissions": [{
 			"resourceScope": "infrastructure",
 			"tenants": ["tenant1"],
-			"infrastructureSignals": ["metrics"],
+			"signals": ["metrics"],
+			"permission": ["read"]
+		}],
+	},
+}
+
+mock_write_infra_policy := {
+	"spec": {
+		"subjects": [{"kind": "User", "name": "infra-user"}],
+		"permissions": [{
+			"resourceScope": "infrastructure",
+			"tenants": ["tenant1"],
+			"signals": ["metrics"],
+			"permission": ["write"]
 		}],
 	},
 }
@@ -35,7 +62,8 @@ mock_audit_policy := {
 		"permissions": [{
 			"resourceScope": "audit",
 			"tenants": ["tenant1"],
-			"auditSignals": ["logs"],
+			"signals": ["logs"],
+			"permission": ["read"]
 		}],
 	},
 }
@@ -47,7 +75,8 @@ mock_wildcard_ns_policy := {
 			"resourceScope": "application",
 			"tenants": ["tenant1"],
 			"namespaces": ["*"],
-			"applicationSignals": ["metrics"],
+			"signals": ["metrics"],
+			"permission": ["read"]
 		}],
 	},
 }
@@ -63,12 +92,14 @@ mock_multi_permission_policy := {
 				"resourceScope": "application",
 				"tenants": ["*"],
 				"namespaces": ["dev", "staging"],
-				"applicationSignals": ["metrics", "traces"],
+				"signals": ["metrics", "traces"],
+				"permission": ["read"]
 			},
 			{
 				"resourceScope": "infrastructure",
 				"tenants": ["tenant1"],
-				"infrastructureSignals": ["metrics"],
+				"signals": ["metrics"],
+				"permission": ["read"]
 			},
 		],
 	},
@@ -76,123 +107,181 @@ mock_multi_permission_policy := {
 
 # Test allowing valid user
 test_allow_valid_user if {
-	authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
 		with input as {
-			"user": {"id": "alice", "groups": []},
-			"requestedResource": {
-				"scope": "application",
-				"tenants": ["tenant1"],
-				"namespaces": ["test-namespace"],
-			},
-			"requestedSignalType": "metrics",
+			"subject": "alice",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"namespace": "test-namespace"
+			}
 		}
 }
 
 # Test denying invalid user
 test_deny_invalid_user if {
-	not authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
 		with input as {
-			"user": {"id": "bob", "groups": []},
-			"requestedResource": {
-				"scope": "application",
-				"tenants": ["tenant1"],
-				"namespaces": ["test-namespace"],
-			},
-			"requestedSignalType": "metrics",
+			"subject": "bob",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"namespace": "test-namespace"
+			}
 		}
 }
 
 # Test group membership
 test_allow_group_member if {
-	authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
 		with input as {
-			"user": {"id": "charlie", "groups": ["admins"]},
-			"requestedResource": {
-				"scope": "application",
-				"tenants": ["tenant1"],
-				"namespaces": ["test-namespace"],
-			},
-			"requestedSignalType": "logs",
+			"subject": "charlie",
+			"groups": ["admins"],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"namespace": "test-namespace"
+			}
 		}
 }
 
 # Test tenant mismatch
 test_deny_wrong_tenant if {
-	not authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
 		with input as {
-			"user": {"id": "alice", "groups": []},
-			"requestedResource": {
-				"scope": "application",
-				"tenants": ["tenant2"],
-				"namespaces": ["test-namespace"],
-			},
-			"requestedSignalType": "metrics",
+			"subject": "alice",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant2",
+			"tenantID": "67890",
+			"extras": {
+				"namespace": "test-namespace"
+			}
 		}
 }
 
 # Test infrastructure access
 test_allow_infrastructure_access if {
-	authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_infra_policy}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_read_infra_policy}}
 		with input as {
-			"user": {"id": "infra-user", "groups": []},
-			"requestedResource": {
-				"scope": "infrastructure",
-				"tenants": ["tenant1"],
-			},
-			"requestedSignalType": "metrics",
+			"subject": "infra-user",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"namespace": "openshift-namespace"
+			}
 		}
 }
 
 # Test audit access
 test_allow_audit_access if {
-	authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"audit-policy": mock_audit_policy}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"audit-policy": mock_audit_policy}}
 		with input as {
-			"user": {"id": "audit-user", "groups": []},
-			"requestedResource": {
-				"scope": "audit",
-				"tenants": ["tenant1"],
-			},
-			"requestedSignalType": "logs",
+			"subject": "audit-user",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345"
 		}
 }
 
 # Test wildcard namespace access
 test_allow_wildcard_namespace_access if {
-	authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"wildcard-ns-policy": mock_wildcard_ns_policy}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"wildcard-ns-policy": mock_wildcard_ns_policy}}
 		with input as {
-			"user": {"id": "ns-admin", "groups": []},
-			"requestedResource": {
-				"scope": "application",
-				"tenants": ["tenant1"],
-				"namespaces": ["any-namespace-should-work"],
-			},
-			"requestedSignalType": "metrics",
+			"subject": "ns-admin",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"namespace": "any-namespace-should-work"
+			}
 		}
 }
 
 # Test wildcard tenant access for application
 test_allow_wildcard_tenant_access if {
-	authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"multi-perm-policy": mock_multi_permission_policy}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"multi-perm-policy": mock_multi_permission_policy}}
 		with input as {
-			"user": {"id": "dev@example.com", "groups": ["developers"]},
-			"requestedResource": {
-				"scope": "application",
-				"tenants": ["any-tenant-should-work"],
-				"namespaces": ["dev"],
-			},
-			"requestedSignalType": "metrics",
+			"subject": "dev@example.com",
+			"groups": ["developers"],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "any-tenant-should-work",
+			"tenantID": "99999",
+			"extras": {
+				"namespace": "dev"
+			}
 		}
 }
 
 # Test second permission in the same policy
 test_allow_infra_access_from_multi_permission_policy if {
-	authz.allow with data.observability_openshift_io.v1alpha1.observabilityaccesspolicies as {"test-namespace": {"multi-perm-policy": mock_multi_permission_policy}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"multi-perm-policy": mock_multi_permission_policy}}
 		with input as {
-			"user": {"id": "dev@example.com", "groups": []},
-			"requestedResource": {
-				"scope": "infrastructure",
-				"tenants": ["tenant1"],
-			},
-			"requestedSignalType": "metrics",
+			"subject": "dev@example.com",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"namespace": "default"
+			}
+		}
+}
+
+# Test write operation
+test_allow_write_operation if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_write_policy}}
+		with input as {
+			"subject": "ok",
+			"groups": ["writers"],
+			"resource": "logs",
+			"permission": "write",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {}
+		}
+}
+
+# Test write operation with wrong signal should fail
+test_allow_write_operation_tenant_only if {
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_write_infra_policy}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "traces",
+			"permission": "write",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+		}
+}
+
+# Test write operation with wrong tenant should still fail
+test_deny_write_operation_wrong_tenant if {
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_write_infra_policy}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "write",
+			"tenant": "wrong-tenant",
+			"tenantID": "12345",
 		}
 }

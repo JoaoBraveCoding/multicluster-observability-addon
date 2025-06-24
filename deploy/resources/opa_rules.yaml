@@ -5,7 +5,7 @@ metadata:
   namespace: open-cluster-management-observability
 data:
   policy.rego: |
-    package observability.authz
+    package authz
 
     import rego.v1
 
@@ -15,113 +15,118 @@ data:
     # The main 'allow' rule.
     # A request is allowed if any loaded ObservabilityAccessPolicy grants the user the requested access.
     allow if {
-        # The path to the data is structured by kube-mgmt based on the CRD's GVK and namespace/name.
-        # CHANGED: Updated the path to match the new apiGroup "observability.openshift.io"
-        policy := data.observability_openshift_io.v1alpha1.observabilityaccesspolicies[_][_]
+        policy := data.kubernetes.observabilityaccesspolicies[_][_]
 
         # Check if the requesting user/group is a subject in this policy
-        subject_matches(policy.spec.subjects, input.user)
+        subject_matches(policy.spec.subjects, input.subject, input.groups)
 
         # Iterate through the permission rules in this policy
         some rule in policy.spec.permissions
 
-        # Check if this rule grants access to the requested resource and signal type
-        permission_granted(rule, input.requestedResource, input.requestedSignalType)
+        tenant_signal_access(rule, input)
+
+        # Check if this rule grants access to the requested resource and permission
+        permission_granted(rule, input)
     }
 
-    # --- Helper Functions ---
+    # --- Subject helper functions ---
 
     # subject_matches: True if the user or any of their groups match a subject in the policy.
-    subject_matches(policy_subjects, input_user) if {
+    subject_matches(policy_subjects, user_subject, user_groups) if {
         some subject in policy_subjects
         subject.kind == "User"
-        subject.name == input_user.id
+        subject.name == user_subject
     }
 
-    subject_matches(policy_subjects, input_user) if {
+    subject_matches(policy_subjects, user_subject, user_groups) if {
         some subject in policy_subjects
-        some group in input_user.groups
+        some group in user_groups
         subject.kind == "Group"
         subject.name == group
+    }
+
+    tenant_signal_access(rule, request_input) if {
+        tenants_match(object.get(rule, "tenants", []), request_input.tenant)
+        some signal in object.get(rule, "signals", [])
+        signal == request_input.resource
     }
 
     # rule_scope: Get a rule's resourceScope, defaulting to "application" if absent from the YAML.
     rule_scope(rule) := object.get(rule, "resourceScope", "application")
 
-    # permission_granted: True if a specific permission rule grants access.
-    permission_granted(rule, requested_resource, requested_signal_type) if {
-        # 1. Match the Resource Scope
-        rule_scope(rule) == requested_resource.scope
+    # permission_granted: True if a specific permission rule grants access, rules defined by scope.
 
-        # 2. Check if requested tenants are covered by this rule's tenants
-        tenants_match(object.get(rule, "tenants", []), requested_resource.tenants)
-
-        # 3. Check scope-specific permissions (signals and namespaces)
-        scope := rule_scope(rule)
-
-        # Application scope
-        scope == "application"
-        namespaces_match(object.get(rule, "namespaces", []), object.get(requested_resource, "namespaces", []))
-        some signal in object.get(rule, "applicationSignals", [])
-        signal == requested_signal_type
+    # For write operations, only tenant access is required (no namespace or signal restrictions)
+    permission_granted(rule, request_input) if {
+        request_input.permission == "write"
+        access_verb_matches(rule, request_input.permission)
     }
 
-    permission_granted(rule, requested_resource, requested_signal_type) if {
-        # 1. Match the Resource Scope
-        rule_scope(rule) == requested_resource.scope
+    # For read operations, apply full scope-based restrictions
+    permission_granted(rule, request_input) if {
+        request_input.permission == "read"
+        access_verb_matches(rule, request_input.permission)
 
-        # 2. Check if requested tenants are covered by this rule's tenants
-        tenants_match(object.get(rule, "tenants", []), requested_resource.tenants)
+        scope := rule_scope(rule)
+        scope == "application"
+        application_namespaces_match(object.get(rule, "namespaces", []), object.get(request_input.extras, "namespace", ""))
+    }
 
-        # 3. Infrastructure scope
+    permission_granted(rule, request_input) if {
+        request_input.permission == "read"
+        access_verb_matches(rule, request_input.permission)
+
         scope := rule_scope(rule)
         scope == "infrastructure"
-        some signal in object.get(rule, "infrastructureSignals", [])
-        signal == requested_signal_type
+        infrastructure_namespace_match(object.get(request_input.extras, "namespace", ""))
     }
 
-    permission_granted(rule, requested_resource, requested_signal_type) if {
-        # 1. Match the Resource Scope
-        rule_scope(rule) == requested_resource.scope
+    permission_granted(rule, request_input) if {
+        request_input.permission == "read"
+        access_verb_matches(rule, request_input.permission)
 
-        # 2. Check if requested tenants are covered by this rule's tenants
-        tenants_match(object.get(rule, "tenants", []), requested_resource.tenants)
-
-        # 3. Audit scope
         scope := rule_scope(rule)
         scope == "audit"
-        some signal in object.get(rule, "auditSignals", [])
-        signal == requested_signal_type
     }
 
-    # tenants_match: True if the set of requested tenants is a subset of the allowed tenants in the rule.
-    tenants_match(rule_tenants, requested_tenants) if {
+    access_verb_matches(rule, permission) if {
+        some perm in object.get(rule, "permission", ["read"])
+        perm == permission
+    }
+
+    # tenants_match: True if the requested tenant is allowed by the rule.
+    tenants_match(rule_tenants, requested_tenant) if {
         some tenant in rule_tenants
         tenant == "*" # Wildcard tenant allows access to any requested tenant
     }
 
-    tenants_match(rule_tenants, requested_tenants) if {
-        # Otherwise, all requested tenants must be in the rule's tenants list.
-        allowed_set := {t | some t in rule_tenants}
-        every req_tenant in requested_tenants {
-            allowed_set[req_tenant]
-        }
+    tenants_match(rule_tenants, requested_tenant) if {
+        some tenant in rule_tenants
+        tenant == requested_tenant
     }
 
-    # namespaces_match: True if requested namespaces are covered (only for 'application' scope).
-    namespaces_match(rule_namespaces, requested_namespaces) if {
+    # application_namespaces_match: True if requested namespace is covered (only for 'application' scope).
+    application_namespaces_match(rule_namespaces, requested_namespace) if {
         count(rule_namespaces) == 0 # Empty list in rule means "all namespaces"
     }
 
-    namespaces_match(rule_namespaces, requested_namespaces) if {
+    application_namespaces_match(rule_namespaces, requested_namespace) if {
         some ns in rule_namespaces
         ns == "*" # Wildcard also means "all namespaces"
     }
 
-    namespaces_match(rule_namespaces, requested_namespaces) if {
-        # Otherwise, all requested namespaces must be in the rule's list.
-        allowed_set := {ns | some ns in rule_namespaces}
-        every req_ns in requested_namespaces {
-            allowed_set[req_ns]
-        }
+    application_namespaces_match(rule_namespaces, requested_namespace) if {
+        some ns in rule_namespaces
+        ns == requested_namespace
+    }
+
+    # infrastructure_namespace_match: True if requested namespace is an infrastructure namespace.
+    infrastructure_namespace_match("default") := "default"
+
+    infrastructure_namespace_match(requested_namespace) if {
+        startswith(requested_namespace, "openshift-")
+    }
+
+    infrastructure_namespace_match(requested_namespace) if {
+        startswith(requested_namespace, "kube-")
     }

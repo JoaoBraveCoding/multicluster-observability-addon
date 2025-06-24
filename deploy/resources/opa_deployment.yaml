@@ -6,7 +6,7 @@ metadata:
   labels:
     app: mcoa-opa
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: mcoa-opa
@@ -20,7 +20,9 @@ spec:
       - name: kube-mgmt
         image: openpolicyagent/kube-mgmt:9.1.0
         args:
-          - --replicate-crd=observability.openshift.io/v1alpha1/observabilityaccesspolicies
+          - --replicate-cluster=observability.openshift.io/v1alpha1/observabilityaccesspolicies
+          - --log-level=debug
+          - --opa.url=http://opa-mgmt.open-cluster-management-observability.svc.cluster.local:8181/v1
       - name: opa
         image: openpolicyagent/opa:1.5.1
         ports:
@@ -30,9 +32,9 @@ spec:
           - "run"
           - "--server"
           - "--addr=:8181"
-          - "--log-level=info"
+          - "--log-level=debug"
           - "/policies/policy.rego"
-          - "--set=default_decision=observability/authz/allow"
+          - "--set=default_decision=authz/allow"
         livenessProbe:
           httpGet:
             path: /health?plugins

@@ -50,62 +50,25 @@ spec:
                 items:
                   description: PermissionRule defines a specific set of permissions.
                   properties:
-                    accessLevel:
-                      default: read
-                      description: |-
-                        AccessLevel defines the level of access granted.
-                        Defaults to "read".
-                      enum:
-                      - read
-                      type: string
-                    applicationSignals:
-                      description: |-
-                        ApplicationSignals lists the allowed signal types (metrics, logs, traces) for the 'application' scope.
-                        Only applicable if resourceScope is "application".
-                      items:
-                        description: SignalType defines the type of observability
-                          signal.
-                        enum:
-                        - metrics
-                        - logs
-                        - traces
-                        - k8s_audit_events
-                        type: string
-                      type: array
-                    auditSignals:
-                      description: |-
-                        AuditSignals lists the allowed signal types (typically logs or k8s_audit_events) for the 'audit' scope.
-                        Only applicable if resourceScope is "audit".
-                      items:
-                        description: SignalType defines the type of observability
-                          signal.
-                        enum:
-                        - metrics
-                        - logs
-                        - traces
-                        - k8s_audit_events
-                        type: string
-                      type: array
-                    infrastructureSignals:
-                      description: |-
-                        InfrastructureSignals lists the allowed signal types (metrics, logs, traces) for the 'infrastructure' scope.
-                        Only applicable if resourceScope is "infrastructure".
-                      items:
-                        description: SignalType defines the type of observability
-                          signal.
-                        enum:
-                        - metrics
-                        - logs
-                        - traces
-                        - k8s_audit_events
-                        type: string
-                      type: array
                     namespaces:
                       description: |-
                         Namespaces is a list of Kubernetes namespaces.
                         Only applicable and used when resourceScope is "application".
                         If omitted or empty for 'application' scope, implies all namespaces in the specified tenants for this rule.
                       items:
+                        type: string
+                      type: array
+                    permission:
+                      default:
+                      - read
+                      description: |-
+                        Permission defines the levels of access granted.
+                        Defaults to ["read"].
+                      items:
+                        description: AccessLevelType defines the level of access.
+                        enum:
+                        - read
+                        - write
                         type: string
                       type: array
                     resourceScope:
@@ -118,6 +81,19 @@ spec:
                       - infrastructure
                       - audit
                       type: string
+                    signals:
+                      description: |-
+                        Signals lists the allowed signal types (metrics, logs, traces) for the scope.
+                        Only applicable if resourceScope is "application".
+                      items:
+                        description: SignalType defines the type of observability
+                          signal.
+                        enum:
+                        - metrics
+                        - logs
+                        - traces
+                        type: string
+                      type: array
                     tenants:
                       description: |-
                         Tenants is a list of tenant IDs this permission rule applies to.
@@ -142,15 +118,14 @@ spec:
                     apiGroup:
                       default: rbac.authorization.k8s.io
                       description: |-
-                        APIGroup is the API group of the subject, typically "rbac.authorization.k8s.io" for Group or ServiceAccount.
-                        Defaults to "rbac.authorization.k8s.io" if not specified for Kind Group or ServiceAccount.
+                        APIGroup is the API group of the subject.
+                        Defaults to "rbac.authorization.k8s.io" if not specified for Kind Group.
                       type: string
                     kind:
-                      description: Kind of the subject (User, Group, or ServiceAccount).
+                      description: Kind of the subject (User or Group).
                       enum:
                       - User
                       - Group
-                      - ServiceAccount
                       type: string
                     name:
                       description: Name of the subject.

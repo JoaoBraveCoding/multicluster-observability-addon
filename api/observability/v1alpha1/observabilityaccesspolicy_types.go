@@ -24,22 +24,22 @@ const (
 )
 
 // SignalType defines the type of observability signal.
-// +kubebuilder:validation:Enum=metrics;logs;traces;k8s_audit_events
+// +kubebuilder:validation:Enum=metrics;logs;traces
 type SignalType string
 
 const (
-	MetricsSignal        SignalType = "metrics"
-	LogsSignal           SignalType = "logs"
-	TracesSignal         SignalType = "traces"
-	K8sAuditEventsSignal SignalType = "k8s_audit_events" // Specific for audit scope if needed
+	MetricsSignal SignalType = "metrics"
+	LogsSignal    SignalType = "logs"
+	TracesSignal  SignalType = "traces"
 )
 
 // AccessLevelType defines the level of access.
-// +kubebuilder:validation:Enum=read
+// +kubebuilder:validation:Enum=read;write
 type AccessLevelType string
 
 const (
-	ReadAccess AccessLevelType = "read" // Default
+	ReadAccess  AccessLevelType = "read" // Default
+	WriteAccess AccessLevelType = "write"
 )
 
 // Subject represents a user, group, or service account that can be granted permissions.
@@ -77,22 +77,14 @@ type PermissionRule struct {
 	// If omitted or empty for 'application' scope, implies all namespaces in the specified tenants for this rule.
 	Namespaces []string `json:"namespaces,omitempty"`
 
-	// ApplicationSignals lists the allowed signal types (metrics, logs, traces) for the 'application' scope.
+	// Signals lists the allowed signal types (metrics, logs, traces) for the scope.
 	// Only applicable if resourceScope is "application".
-	ApplicationSignals []SignalType `json:"applicationSignals,omitempty"`
+	Signals []SignalType `json:"signals,omitempty"`
 
-	// InfrastructureSignals lists the allowed signal types (metrics, logs, traces) for the 'infrastructure' scope.
-	// Only applicable if resourceScope is "infrastructure".
-	InfrastructureSignals []SignalType `json:"infrastructureSignals,omitempty"`
-
-	// AuditSignals lists the allowed signal types (typically logs or k8s_audit_events) for the 'audit' scope.
-	// Only applicable if resourceScope is "audit".
-	AuditSignals []SignalType `json:"auditSignals,omitempty"`
-
-	// AccessLevel defines the level of access granted.
-	// Defaults to "read".
-	// +kubebuilder:default=read
-	AccessLevel AccessLevelType `json:"accessLevel,omitempty"`
+	// Permission defines the levels of access granted.
+	// Defaults to ["read"].
+	// +kubebuilder:default={"read"}
+	Permission []AccessLevelType `json:"permission,omitempty"`
 }
 
 // ObservabilityAccessPolicySpec defines the desired state of ObservabilityAccessPolicy.

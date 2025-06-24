@@ -130,19 +130,14 @@ func (in *PermissionRule) DeepCopyInto(out *PermissionRule) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.ApplicationSignals != nil {
-		in, out := &in.ApplicationSignals, &out.ApplicationSignals
+	if in.Signals != nil {
+		in, out := &in.Signals, &out.Signals
 		*out = make([]SignalType, len(*in))
 		copy(*out, *in)
 	}
-	if in.InfrastructureSignals != nil {
-		in, out := &in.InfrastructureSignals, &out.InfrastructureSignals
-		*out = make([]SignalType, len(*in))
-		copy(*out, *in)
-	}
-	if in.AuditSignals != nil {
-		in, out := &in.AuditSignals, &out.AuditSignals
-		*out = make([]SignalType, len(*in))
+	if in.Permission != nil {
+		in, out := &in.Permission, &out.Permission
+		*out = make([]AccessLevelType, len(*in))
 		copy(*out, *in)
 	}
 }
