@@ -33,13 +33,13 @@ const (
 	TracesSignal  SignalType = "traces"
 )
 
-// AccessLevelType defines the level of access.
+// PermissionType defines the level of access.
 // +kubebuilder:validation:Enum=read;write
-type AccessLevelType string
+type PermissionType string
 
 const (
-	ReadAccess  AccessLevelType = "read" // Default
-	WriteAccess AccessLevelType = "write"
+	ReadAccess  PermissionType = "read" // Default
+	WriteAccess PermissionType = "write"
 )
 
 // Subject represents a user, group, or service account that can be granted permissions.
@@ -59,8 +59,8 @@ type Subject struct {
 	APIGroup string `json:"apiGroup,omitempty"`
 }
 
-// PermissionRule defines a specific set of permissions.
-type PermissionRule struct {
+// AccessRule defines a specific set of permissions.
+type AccessRule struct {
 	// ResourceScope defines the scope of the observability data this permission applies to.
 	// Defaults to "application".
 	// +kubebuilder:default=application
@@ -84,7 +84,7 @@ type PermissionRule struct {
 	// Permission defines the levels of access granted.
 	// Defaults to ["read"].
 	// +kubebuilder:default={"read"}
-	Permission []AccessLevelType `json:"permission,omitempty"`
+	Permission []PermissionType `json:"permission,omitempty"`
 }
 
 // ObservabilityAccessPolicySpec defines the desired state of ObservabilityAccessPolicy.
@@ -94,10 +94,10 @@ type ObservabilityAccessPolicySpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Subjects []Subject `json:"subjects"`
 
-	// Permissions is a list of permission rules granting access.
+	// AccessRules is a list of permission rules granting access.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	Permissions []PermissionRule `json:"permissions"`
+	AccessRules []AccessRule `json:"accessRules"`
 }
 
 // ObservabilityAccessPolicyStatus defines the observed state of ObservabilityAccessPolicy.

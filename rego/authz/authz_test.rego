@@ -9,7 +9,7 @@ mock_policy := {
 			{"kind": "User", "name": "alice"},
 			{"kind": "Group", "name": "admins"},
 		],
-		"permissions": [{
+		"accessRules": [{
 			"resourceScope": "application",
 			"tenants": ["tenant1"],
 			"namespaces": ["test-namespace"],
@@ -23,7 +23,7 @@ mock_write_policy := {
 		"subjects": [
 			{"kind": "Group", "name": "writers"},
 		],
-		"permissions": [{
+		"accessRules": [{
 			"resourceScope": "infrastructure",
 			"tenants": ["tenant1"],
 			"signals": ["metrics", "logs"],
@@ -35,7 +35,7 @@ mock_write_policy := {
 mock_read_infra_policy := {
 	"spec": {
 		"subjects": [{"kind": "User", "name": "infra-user"}],
-		"permissions": [{
+		"accessRules": [{
 			"resourceScope": "infrastructure",
 			"tenants": ["tenant1"],
 			"signals": ["metrics"],
@@ -47,7 +47,7 @@ mock_read_infra_policy := {
 mock_write_infra_policy := {
 	"spec": {
 		"subjects": [{"kind": "User", "name": "infra-user"}],
-		"permissions": [{
+		"accessRules": [{
 			"resourceScope": "infrastructure",
 			"tenants": ["tenant1"],
 			"signals": ["metrics"],
@@ -59,7 +59,7 @@ mock_write_infra_policy := {
 mock_audit_policy := {
 	"spec": {
 		"subjects": [{"kind": "User", "name": "audit-user"}],
-		"permissions": [{
+		"accessRules": [{
 			"resourceScope": "audit",
 			"tenants": ["tenant1"],
 			"signals": ["logs"],
@@ -71,7 +71,7 @@ mock_audit_policy := {
 mock_wildcard_ns_policy := {
 	"spec": {
 		"subjects": [{"kind": "User", "name": "ns-admin"}],
-		"permissions": [{
+		"accessRules": [{
 			"resourceScope": "application",
 			"tenants": ["tenant1"],
 			"namespaces": ["*"],
@@ -87,7 +87,7 @@ mock_multi_permission_policy := {
 			{"kind": "User", "name": "dev@example.com"},
 			{"kind": "Group", "name": "developers"},
 		],
-		"permissions": [
+		"accessRules": [
 			{
 				"resourceScope": "application",
 				"tenants": ["*"],

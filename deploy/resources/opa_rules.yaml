@@ -20,8 +20,8 @@ data:
         # Check if the requesting user/group is a subject in this policy
         subject_matches(policy.spec.subjects, input.subject, input.groups)
 
-        # Iterate through the permission rules in this policy
-        some rule in policy.spec.permissions
+        # Iterate through the access rules in this policy
+        some rule in policy.spec.accessRules
 
         tenant_signal_access(rule, input)
 

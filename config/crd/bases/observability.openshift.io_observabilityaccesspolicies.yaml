@@ -45,10 +45,10 @@ spec:
             description: ObservabilityAccessPolicySpec defines the desired state of
               ObservabilityAccessPolicy.
             properties:
-              permissions:
-                description: Permissions is a list of permission rules granting access.
+              accessRules:
+                description: AccessRules is a list of permission rules granting access.
                 items:
-                  description: PermissionRule defines a specific set of permissions.
+                  description: AccessRule defines a specific set of permissions.
                   properties:
                     namespaces:
                       description: |-
@@ -65,7 +65,7 @@ spec:
                         Permission defines the levels of access granted.
                         Defaults to ["read"].
                       items:
-                        description: AccessLevelType defines the level of access.
+                        description: PermissionType defines the level of access.
                         enum:
                         - read
                         - write
@@ -138,7 +138,7 @@ spec:
                 minItems: 1
                 type: array
             required:
-            - permissions
+            - accessRules
             - subjects
             type: object
           status:
