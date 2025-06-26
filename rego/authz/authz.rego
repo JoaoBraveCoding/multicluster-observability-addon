@@ -22,6 +22,24 @@ allow if {
 	permission_granted(rule, input)
 }
 
+# --- Helper functions ---
+
+# extract_namespace: Extract namespace from the nested extras.selectors structure
+# Supports multiple possible field names: namespace, k8s_namespace_name
+extract_namespace(request_input) := namespace if {
+	selectors := object.get(request_input.extras, "selectors", {})
+	namespace_list := object.get(selectors, "namespace", [])
+	count(namespace_list) > 0
+	namespace := namespace_list[0]
+}
+
+extract_namespace(request_input) := namespace if {
+	selectors := object.get(request_input.extras, "selectors", {})
+	namespace_list := object.get(selectors, "k8s_namespace_name", [])
+	count(namespace_list) > 0
+	namespace := namespace_list[0]
+}
+
 # --- Subject helper functions ---
 
 # subject_matches: True if the user or any of their groups match a subject in the policy.
@@ -62,7 +80,8 @@ permission_granted(rule, request_input) if {
 
 	scope := rule_scope(rule)
 	scope == "application"
-	application_namespaces_match(object.get(rule, "namespaces", []), object.get(request_input.extras, "namespace", ""))
+	requested_namespace := extract_namespace(request_input)
+	application_namespaces_match(object.get(rule, "namespaces", []), requested_namespace)
 }
 
 permission_granted(rule, request_input) if {
@@ -71,7 +90,8 @@ permission_granted(rule, request_input) if {
 
 	scope := rule_scope(rule)
 	scope == "infrastructure"
-	infrastructure_namespace_match(object.get(request_input.extras, "namespace", ""))
+	requested_namespace := extract_namespace(request_input)
+	infrastructure_namespace_match(requested_namespace)
 }
 
 permission_granted(rule, request_input) if {

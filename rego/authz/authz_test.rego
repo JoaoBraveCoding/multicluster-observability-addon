@@ -116,7 +116,9 @@ test_allow_valid_user if {
 			"tenant": "tenant1",
 			"tenantID": "12345",
 			"extras": {
-				"namespace": "test-namespace"
+				"selectors": {
+					"k8s_namespace_name": ["test-namespace"]
+				}
 			}
 		}
 }
@@ -132,7 +134,9 @@ test_deny_invalid_user if {
 			"tenant": "tenant1",
 			"tenantID": "12345",
 			"extras": {
-				"namespace": "test-namespace"
+				"selectors": {
+					"k8s_namespace_name": ["test-namespace"]
+				}
 			}
 		}
 }
@@ -148,7 +152,9 @@ test_allow_group_member if {
 			"tenant": "tenant1",
 			"tenantID": "12345",
 			"extras": {
-				"namespace": "test-namespace"
+				"selectors": {
+					"k8s_namespace_name": ["test-namespace"]
+				}
 			}
 		}
 }
@@ -164,7 +170,9 @@ test_deny_wrong_tenant if {
 			"tenant": "tenant2",
 			"tenantID": "67890",
 			"extras": {
-				"namespace": "test-namespace"
+				"selectors": {
+					"k8s_namespace_name": ["test-namespace"]
+				}
 			}
 		}
 }
@@ -180,7 +188,9 @@ test_allow_infrastructure_access if {
 			"tenant": "tenant1",
 			"tenantID": "12345",
 			"extras": {
-				"namespace": "openshift-namespace"
+				"selectors": {
+					"k8s_namespace_name": ["openshift-namespace"]
+				}
 			}
 		}
 }
@@ -209,7 +219,9 @@ test_allow_wildcard_namespace_access if {
 			"tenant": "tenant1",
 			"tenantID": "12345",
 			"extras": {
-				"namespace": "any-namespace-should-work"
+				"selectors": {
+					"k8s_namespace_name": ["any-namespace-should-work"]
+				}
 			}
 		}
 }
@@ -225,7 +237,9 @@ test_allow_wildcard_tenant_access if {
 			"tenant": "any-tenant-should-work",
 			"tenantID": "99999",
 			"extras": {
-				"namespace": "dev"
+				"selectors": {
+					"k8s_namespace_name": ["dev"]
+				}
 			}
 		}
 }
@@ -241,7 +255,9 @@ test_allow_infra_access_from_multi_permission_policy if {
 			"tenant": "tenant1",
 			"tenantID": "12345",
 			"extras": {
-				"namespace": "default"
+				"selectors": {
+					"k8s_namespace_name": ["default"]
+				}
 			}
 		}
 }
@@ -283,5 +299,55 @@ test_deny_write_operation_wrong_tenant if {
 			"permission": "write",
 			"tenant": "wrong-tenant",
 			"tenantID": "12345",
+		}
+}
+
+# Test alternative namespace field names
+test_allow_with_namespace_field if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"selectors": {
+					"namespace": ["test-namespace"]
+				}
+			}
+		}
+}
+
+test_allow_with_k8s_namespace_name_field if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"selectors": {
+					"k8s_namespace_name": ["test-namespace"]
+				}
+			}
+		}
+}
+
+test_allow_with_no_namespace_for_audit if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"audit-policy": mock_audit_policy}}
+		with input as {
+			"subject": "audit-user",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"selectors": {}
+			}
 		}
 }
