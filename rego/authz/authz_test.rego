@@ -3,107 +3,92 @@ package authz_test
 import data.authz
 
 # Test data setup
-mock_policy := {
-	"spec": {
-		"subjects": [
-			{"kind": "User", "name": "alice"},
-			{"kind": "Group", "name": "admins"},
-		],
-		"accessRules": [{
+mock_policy := {"spec": {
+	"subjects": [
+		{"kind": "User", "name": "alice"},
+		{"kind": "Group", "name": "admins"},
+	],
+	"accessRules": [{
+		"resourceScope": "application",
+		"tenants": ["tenant1"],
+		"namespaces": ["test-namespace"],
+		"signals": ["metrics", "logs"],
+		"permission": ["read"],
+	}],
+}}
+
+mock_write_policy := {"spec": {
+	"subjects": [{"kind": "Group", "name": "writers"}],
+	"accessRules": [{
+		"resourceScope": "infrastructure",
+		"tenants": ["tenant1"],
+		"signals": ["metrics", "logs"],
+		"permission": ["write"],
+	}],
+}}
+
+mock_read_infra_policy := {"spec": {
+	"subjects": [{"kind": "User", "name": "infra-user"}],
+	"accessRules": [{
+		"resourceScope": "infrastructure",
+		"tenants": ["tenant1"],
+		"signals": ["metrics"],
+		"permission": ["read"],
+	}],
+}}
+
+mock_write_infra_policy := {"spec": {
+	"subjects": [{"kind": "User", "name": "infra-user"}],
+	"accessRules": [{
+		"resourceScope": "infrastructure",
+		"tenants": ["tenant1"],
+		"signals": ["metrics"],
+		"permission": ["write"],
+	}],
+}}
+
+mock_audit_policy := {"spec": {
+	"subjects": [{"kind": "User", "name": "audit-user"}],
+	"accessRules": [{
+		"resourceScope": "audit",
+		"tenants": ["tenant1"],
+		"signals": ["logs"],
+		"permission": ["read"],
+	}],
+}}
+
+mock_wildcard_ns_policy := {"spec": {
+	"subjects": [{"kind": "User", "name": "ns-admin"}],
+	"accessRules": [{
+		"resourceScope": "application",
+		"tenants": ["tenant1"],
+		"namespaces": ["*"],
+		"signals": ["metrics"],
+		"permission": ["read"],
+	}],
+}}
+
+mock_multi_permission_policy := {"spec": {
+	"subjects": [
+		{"kind": "User", "name": "dev@example.com"},
+		{"kind": "Group", "name": "developers"},
+	],
+	"accessRules": [
+		{
 			"resourceScope": "application",
-			"tenants": ["tenant1"],
-			"namespaces": ["test-namespace"],
-			"signals": ["metrics", "logs"],
-			"permission": ["read"]
-		}],
-	}
-}
-mock_write_policy := {
-	"spec": {
-		"subjects": [
-			{"kind": "Group", "name": "writers"},
-		],
-		"accessRules": [{
-			"resourceScope": "infrastructure",
-			"tenants": ["tenant1"],
-			"signals": ["metrics", "logs"],
-			"permission": ["write"]
-		}],
-	}
-}
-
-mock_read_infra_policy := {
-	"spec": {
-		"subjects": [{"kind": "User", "name": "infra-user"}],
-		"accessRules": [{
+			"tenants": ["*"],
+			"namespaces": ["dev", "staging"],
+			"signals": ["metrics", "traces"],
+			"permission": ["read"],
+		},
+		{
 			"resourceScope": "infrastructure",
 			"tenants": ["tenant1"],
 			"signals": ["metrics"],
-			"permission": ["read"]
-		}],
-	},
-}
-
-mock_write_infra_policy := {
-	"spec": {
-		"subjects": [{"kind": "User", "name": "infra-user"}],
-		"accessRules": [{
-			"resourceScope": "infrastructure",
-			"tenants": ["tenant1"],
-			"signals": ["metrics"],
-			"permission": ["write"]
-		}],
-	},
-}
-
-mock_audit_policy := {
-	"spec": {
-		"subjects": [{"kind": "User", "name": "audit-user"}],
-		"accessRules": [{
-			"resourceScope": "audit",
-			"tenants": ["tenant1"],
-			"signals": ["logs"],
-			"permission": ["read"]
-		}],
-	},
-}
-
-mock_wildcard_ns_policy := {
-	"spec": {
-		"subjects": [{"kind": "User", "name": "ns-admin"}],
-		"accessRules": [{
-			"resourceScope": "application",
-			"tenants": ["tenant1"],
-			"namespaces": ["*"],
-			"signals": ["metrics"],
-			"permission": ["read"]
-		}],
-	},
-}
-
-mock_multi_permission_policy := {
-	"spec": {
-		"subjects": [
-			{"kind": "User", "name": "dev@example.com"},
-			{"kind": "Group", "name": "developers"},
-		],
-		"accessRules": [
-			{
-				"resourceScope": "application",
-				"tenants": ["*"],
-				"namespaces": ["dev", "staging"],
-				"signals": ["metrics", "traces"],
-				"permission": ["read"]
-			},
-			{
-				"resourceScope": "infrastructure",
-				"tenants": ["tenant1"],
-				"signals": ["metrics"],
-				"permission": ["read"]
-			},
-		],
-	},
-}
+			"permission": ["read"],
+		},
+	],
+}}
 
 # Test allowing valid user
 test_allow_valid_user if {
@@ -115,11 +100,7 @@ test_allow_valid_user if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["test-namespace"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["test-namespace"]}},
 		}
 }
 
@@ -133,11 +114,7 @@ test_deny_invalid_user if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["test-namespace"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["test-namespace"]}},
 		}
 }
 
@@ -151,11 +128,7 @@ test_allow_group_member if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["test-namespace"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["test-namespace"]}},
 		}
 }
 
@@ -169,11 +142,7 @@ test_deny_wrong_tenant if {
 			"permission": "read",
 			"tenant": "tenant2",
 			"tenantID": "67890",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["test-namespace"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["test-namespace"]}},
 		}
 }
 
@@ -187,11 +156,7 @@ test_allow_infrastructure_access if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["openshift-namespace"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["openshift-namespace"]}},
 		}
 }
 
@@ -204,7 +169,7 @@ test_allow_audit_access if {
 			"resource": "logs",
 			"permission": "read",
 			"tenant": "tenant1",
-			"tenantID": "12345"
+			"tenantID": "12345",
 		}
 }
 
@@ -218,11 +183,7 @@ test_allow_wildcard_namespace_access if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["any-namespace-should-work"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["any-namespace-should-work"]}},
 		}
 }
 
@@ -236,11 +197,7 @@ test_allow_wildcard_tenant_access if {
 			"permission": "read",
 			"tenant": "any-tenant-should-work",
 			"tenantID": "99999",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["dev"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["dev"]}},
 		}
 }
 
@@ -254,11 +211,7 @@ test_allow_infra_access_from_multi_permission_policy if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["default"]
-				}
-			}
+			"extras": {"selectors": {"k8s_namespace_name": ["default"]}},
 		}
 }
 
@@ -272,7 +225,7 @@ test_allow_write_operation if {
 			"permission": "write",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {}
+			"extras": {},
 		}
 }
 
@@ -302,8 +255,8 @@ test_deny_write_operation_wrong_tenant if {
 		}
 }
 
-# Test alternative namespace field names
-test_allow_with_namespace_field if {
+# Test metadataOnly query for application scope
+test_allow_metadata_only_app_scope if {
 	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
 		with input as {
 			"subject": "alice",
@@ -312,42 +265,20 @@ test_allow_with_namespace_field if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"namespace": ["test-namespace"]
-				}
-			}
+			"extras": {"metadataOnly": true},
 		}
 }
 
-test_allow_with_k8s_namespace_name_field if {
-	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy}}
+# Test metadataOnly query for infrastructure scope
+test_allow_metadata_only_infra_scope if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_read_infra_policy}}
 		with input as {
-			"subject": "alice",
+			"subject": "infra-user",
 			"groups": [],
 			"resource": "metrics",
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {
-				"selectors": {
-					"k8s_namespace_name": ["test-namespace"]
-				}
-			}
-		}
-}
-
-test_allow_with_no_namespace_for_audit if {
-	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"audit-policy": mock_audit_policy}}
-		with input as {
-			"subject": "audit-user",
-			"groups": [],
-			"resource": "logs",
-			"permission": "read",
-			"tenant": "tenant1",
-			"tenantID": "12345",
-			"extras": {
-				"selectors": {}
-			}
+			"extras": {"metadataOnly": true},
 		}
 }

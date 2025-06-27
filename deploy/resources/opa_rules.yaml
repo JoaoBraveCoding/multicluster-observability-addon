@@ -31,27 +31,11 @@ data:
 
     # --- Helper functions ---
 
-    # extract_namespace: Extract namespace from the nested extras.selectors structure
-    # Supports multiple possible field names: kubernetes_namespace_name, namespace, k8s_namespace_name
-    extract_namespace(request_input) := namespace if {
-        selectors := object.get(request_input.extras, "selectors", {})
-        namespace_list := object.get(selectors, "kubernetes_namespace_name", [])
-        count(namespace_list) > 0
-        namespace := namespace_list[0]
-    }
-
-    extract_namespace(request_input) := namespace if {
-        selectors := object.get(request_input.extras, "selectors", {})
-        namespace_list := object.get(selectors, "namespace", [])
-        count(namespace_list) > 0
-        namespace := namespace_list[0]
-    }
-
-    extract_namespace(request_input) := namespace if {
+    # extract_namespaces: Extract namespaces from the nested extras.selectors structure
+    # Supports multiple possible field names: namespace, k8s_namespace_name
+    extract_namespaces(request_input) := namespace_list if {
         selectors := object.get(request_input.extras, "selectors", {})
         namespace_list := object.get(selectors, "k8s_namespace_name", [])
-        count(namespace_list) > 0
-        namespace := namespace_list[0]
     }
 
     # --- Subject helper functions ---
@@ -71,7 +55,7 @@ data:
     }
 
     tenant_signal_access(rule, request_input) if {
-        tenants_match(object.get(rule, "tenants", []), request_input.tenant)
+        element_match(object.get(rule, "tenants", []), request_input.tenant)
         some signal in object.get(rule, "signals", [])
         signal == request_input.resource
     }
@@ -87,31 +71,43 @@ data:
         access_verb_matches(rule, request_input.permission)
     }
 
+    # For metadata read operations
+    permission_granted(rule, request_input) if {
+        request_input.permission == "read"
+        access_verb_matches(rule, request_input.permission)
+        metadata_only := object.get(request_input.extras, "metadataOnly", false)
+        requested_namespaces := extract_namespaces(request_input)
+        count(requested_namespaces) == 0
+        metadata_only
+    }
+
     # For read operations, apply full scope-based restrictions
     permission_granted(rule, request_input) if {
         request_input.permission == "read"
         access_verb_matches(rule, request_input.permission)
+        read_scope_validation(rule, request_input)
+    }
 
+    read_scope_validation(rule, request_input) if {
         scope := rule_scope(rule)
         scope == "application"
-        requested_namespace := extract_namespace(request_input)
-        application_namespaces_match(object.get(rule, "namespaces", []), requested_namespace)
+        requested_namespaces := extract_namespaces(request_input)
+        every namespace in requested_namespaces {
+            element_match(object.get(rule, "namespaces", []), namespace)
+        }
     }
 
-    permission_granted(rule, request_input) if {
-        request_input.permission == "read"
-        access_verb_matches(rule, request_input.permission)
-
+    read_scope_validation(rule, request_input) if {
         scope := rule_scope(rule)
         scope == "infrastructure"
-        requested_namespace := extract_namespace(request_input)
-        infrastructure_namespace_match(requested_namespace)
+        requested_namespaces := extract_namespaces(request_input)
+        every namespace in requested_namespaces {
+            # Infrastructure scope allows access to infrastructure namespaces only
+            infrastructure_namespace_match(namespace)
+        }
     }
 
-    permission_granted(rule, request_input) if {
-        request_input.permission == "read"
-        access_verb_matches(rule, request_input.permission)
-
+    read_scope_validation(rule, request_input) if {
         scope := rule_scope(rule)
         scope == "audit"
     }
@@ -121,39 +117,24 @@ data:
         perm == permission
     }
 
-    # tenants_match: True if the requested tenant is allowed by the rule.
-    tenants_match(rule_tenants, requested_tenant) if {
-        some tenant in rule_tenants
-        tenant == "*" # Wildcard tenant allows access to any requested tenant
+    # element_match: True if the requested tenant is allowed by the rule.
+    element_match(elements, requested_element) if {
+        some element in elements
+        element == "*" # Wildcard element allows access to any requested element
     }
 
-    tenants_match(rule_tenants, requested_tenant) if {
-        some tenant in rule_tenants
-        tenant == requested_tenant
-    }
-
-    # application_namespaces_match: True if requested namespace is covered (only for 'application' scope).
-    application_namespaces_match(rule_namespaces, requested_namespace) if {
-        count(rule_namespaces) == 0 # Empty list in rule means "all namespaces"
-    }
-
-    application_namespaces_match(rule_namespaces, requested_namespace) if {
-        some ns in rule_namespaces
-        ns == "*" # Wildcard also means "all namespaces"
-    }
-
-    application_namespaces_match(rule_namespaces, requested_namespace) if {
-        some ns in rule_namespaces
-        ns == requested_namespace
+    element_match(elements, requested_element) if {
+        some element in elements
+        element == requested_element
     }
 
     # infrastructure_namespace_match: True if requested namespace is an infrastructure namespace.
     infrastructure_namespace_match("default") := "default"
 
-    infrastructure_namespace_match(requested_namespace) if {
-        startswith(requested_namespace, "openshift-")
+    infrastructure_namespace_match(requested_namespaces) if {
+        startswith(requested_namespaces, "openshift-")
     }
 
-    infrastructure_namespace_match(requested_namespace) if {
-        startswith(requested_namespace, "kube-")
+    infrastructure_namespace_match(requested_namespaces) if {
+        startswith(requested_namespaces, "kube-")
     }
