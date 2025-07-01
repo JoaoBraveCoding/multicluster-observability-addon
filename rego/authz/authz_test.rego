@@ -32,6 +32,7 @@ mock_read_infra_policy := {"spec": {
 	"accessRules": [{
 		"resourceScope": "infrastructure",
 		"tenants": ["tenant1"],
+		"namespaces": ["*"],
 		"signals": ["metrics"],
 		"permission": ["read"],
 	}],
