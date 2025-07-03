@@ -1,9 +1,7 @@
 package authz
 
-import rego.v1
 import data.kubernetes.observabilityaccesspolicies
-
-
+import rego.v1
 
 log_signal := "logs"
 
@@ -25,11 +23,12 @@ request_selectors_key := "selectors"
 request_namespace_label_key := "k8s_namespace_name"
 request_type_label_key := "type"
 
-missing_policies_deny_message := "Access Denied: Your user '%s' or groups '%s' are not configured in any ObservabilityAccessPolicies in the hub cluster." 
+missing_policies_deny_message := "Access Denied: Your user '%s' or groups '%s' are not configured in any ObservabilityAccessPolicies in the hub cluster."
 unauthorized_tenant_message := "Access Denied: You do not have permission for the tenant '%s'."
 missing_type_label := "Access Denied: To query non-application logs you need to provide the label \"type\" with either \"infrastructure\" or \"audit\"."
 missing_signal_permissions_for_tenant := "Access Denied: You do not have permission '%s' to access the signal '%s' for the tenant '%s'."
 missing_query_permissions_for_tenant := "Access Denied: You do not have permission to query the signal '%s' using the scope '%s' for the tenant '%s'."
+forbidden_namespaces_in_scope := "Access Denied: Your query contains namespaces that are not allowed to be queried with the scope '%s'."
 
 # The main 'allow' rule.
 # A request is allowed if there are no deny messages.
@@ -103,19 +102,19 @@ deny[missing_type_label] if {
 	input.permission == read_permission
 	requested_namespaces := extract_namespaces(input)
 	application_namespaces := {ns | some ns in requested_namespaces; not is_infrastructure_namespace(ns)}
-	count(application_namespaces) == 0	
+	count(application_namespaces) == 0
 
-	extract_scope(input) == ""	
+	extract_scope(input) == ""
 }
 
 deny[msg] if {
-	# Rule 5: deny logs read requests for scopes 'infrastructure' and 'audit' that don't have the correct permissions 
+	# Rule 5: deny logs read requests for scopes 'infrastructure' and 'audit' that don't have the correct permissions
 	# to do so.
 	input.resource == log_signal
 	input.permission == read_permission
 	not is_application_scope(extract_scope(input))
 	request_scope := extract_scope(input)
-	
+
 	# Find if the user has applicable rules
 	applicable_rules := [rule |
 		policy := observabilityaccesspolicies[_][_]
@@ -129,7 +128,7 @@ deny[msg] if {
 	count(applicable_rules) > 0
 
 	every rule in applicable_rules {
-			not object.get(rule, rule_scope_key, application_scope) == request_scope
+		not object.get(rule, rule_scope_key, application_scope) == request_scope
 	}
 
 	msg := sprintf(missing_query_permissions_for_tenant, [input.resource, request_scope, input.tenant])
@@ -138,25 +137,16 @@ deny[msg] if {
 deny[msg] if {
 	# Rule 6: deny read requests for logs if the requested scope doesn't match the policy scope/namespaces.
 	input.resource == log_signal
-	input.permission == read_permission	
+	input.permission == read_permission
 	request_scope := extract_scope(input)
 	request_scope in {application_scope, infrastructure_scope, audit_scope}
 
-	
 	# Find if the user has applicable rules
-	applicable_rules := [rule |
-		policy := observabilityaccesspolicies[_][_]
-		subject_matches(policy.spec.subjects, input.subject, input.groups)
-		some rule in policy.spec.accessRules
-		element_match_or_wildcard(object.get(rule, rule_tenants_key, []), input.tenant)
-		element_match(object.get(rule, rule_permission_key, []), input.permission)
-		element_match(object.get(rule, rule_signals_key, []), input.resource)
-		object.get(rule, rule_scope_key, application_scope) == request_scope
-	]
+	applicable_rules := rules_that_match(input.subject, input.groups, input.tenant, input.permission, input.resource, request_scope)
 
 	namespaces_do_not_match_scope(applicable_rules, request_scope)
 
-	msg := sprintf("Access Denied: Your query contains namespaces that are not allowed to be queried with the scope '%s'.", [request_scope])
+	msg := sprintf(forbidden_namespaces_in_scope, [request_scope])
 }
 
 deny[msg] if {
@@ -165,15 +155,7 @@ deny[msg] if {
 	is_application_scope(extract_scope(input))
 
 	# Find if the user has applicable rules
-	applicable_rules := [rule |
-		policy := observabilityaccesspolicies[_][_]
-		subject_matches(policy.spec.subjects, input.subject, input.groups)
-		some rule in policy.spec.accessRules
-		element_match_or_wildcard(object.get(rule, rule_tenants_key, []), input.tenant)
-		element_match(object.get(rule, rule_permission_key, []), input.permission)
-		element_match(object.get(rule, rule_signals_key, []), input.resource)
-		object.get(rule, rule_scope_key, application_scope) == application_scope
-	]
+	applicable_rules := rules_that_match(input.subject, input.groups, input.tenant, input.permission, input.resource, application_scope)
 	count(applicable_rules) > 0
 
 	is_logs_application_scope_compliant(input.resource, applicable_rules, application_scope)
@@ -181,6 +163,16 @@ deny[msg] if {
 
 	msg := sprintf("TODO CHANGE ME Access Denied: You do not have permission to query the signal '%s' using the scope '%s' for the tenant '%s'.", [input.resource, application_scope, input.tenant])
 }
+
+rules_that_match(subject, group, tenant, permission, signal, scope) := [rule |
+	policy := observabilityaccesspolicies[_][_]
+	subject_matches(policy.spec.subjects, subject, group)
+	some rule in policy.spec.accessRules
+	element_match_or_wildcard(object.get(rule, rule_tenants_key, []), tenant)
+	element_match(object.get(rule, rule_permission_key, []), permission)
+	element_match(object.get(rule, rule_signals_key, []), signal)
+	object.get(rule, rule_scope_key, application_scope) == scope
+]
 
 # element_match: True if the requested element is in the set of elements or
 # is a wildcard.
@@ -195,22 +187,23 @@ element_match_or_wildcard(elements, requested_element) if {
 	some element in elements
 	element == "*" # Wildcard element allows access to any requested element
 }
+
 element_match_or_wildcard(elements, requested_element) if {
 	element_match(elements, requested_element)
 }
 
-# is_application_scope: True if the request is for the application scope or 
+# is_application_scope: True if the request is for the application scope or
 # doesn't specify a scope.
 is_application_scope(request_scope) if {
 	request_scope in {application_scope, ""}
 }
-	
+
 # is_application_scope_denied: True if the request is a query request without specifying a namespace or
 # references namespace to which the user does not have access
 is_application_scope_denied(request_input, applicable_rules, scope) if {
 	requested_namespaces := extract_namespaces(request_input)
 	count(requested_namespaces) > 0
-	
+
 	some namespace in requested_namespaces
 	every rule in applicable_rules {
 		not element_match_or_wildcard(object.get(rule, rule_namespaces_key, []), namespace)
@@ -255,7 +248,7 @@ subject_matches(policy_subjects, user_subject, user_groups) if {
 
 # ---- Log Specific Helper Rules ----
 
-# is_logs_application_scope_compliant since logs are scoped by application, 
+# is_logs_application_scope_compliant since logs are scoped by application,
 # infrastructure and audit, we need to validate that the query doesn't try to
 # access namespaces that are not compliant with the scope.
 is_logs_application_scope_compliant(signal, applicable_rules, scope) if {
@@ -288,9 +281,9 @@ namespaces_do_not_match_scope(applicable_rules, request_scope) if {
 is_infrastructure_namespace("default") := "default"
 
 is_infrastructure_namespace(requested_namespace) if {
-		startswith(requested_namespace, "openshift-")
+	startswith(requested_namespace, "openshift-")
 }
 
 is_infrastructure_namespace(requested_namespace) if {
-		startswith(requested_namespace, "kube-")
+	startswith(requested_namespace, "kube-")
 }

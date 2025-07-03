@@ -180,7 +180,6 @@ test_allow_valid_user if {
 			"tenantID": "12345",
 			"extras": {"selectors": {"k8s_namespace_name": ["test-namespace"]}},
 		}
-
 }
 
 # Test allow group membership
@@ -224,7 +223,6 @@ test_deny_wrong_signal if {
 			"extras": {"selectors": {"k8s_namespace_name": ["test-namespace"]}},
 		}
 }
-
 
 # Test deny access to the wrong namespace
 test_deny_wrong_namespace if {
@@ -309,7 +307,7 @@ test_allow_metadata_with_namespace if {
 			"extras": {
 				"metadataOnly": true,
 				"selectors": {"k8s_namespace_name": ["test-namespace"]},
-				},
+			},
 		}
 }
 
@@ -326,7 +324,7 @@ test_allow_metadata_with_wildcard if {
 			"extras": {
 				"metadataOnly": true,
 				"selectors": {"k8s_namespace_name": ["any-namespace-should-work"]},
-				},
+			},
 		}
 }
 
@@ -343,7 +341,7 @@ test_deny_metadata_with_namespace if {
 			"extras": {
 				"metadataOnly": true,
 				"selectors": {"k8s_namespace_name": ["eve-namespace"]},
-				},
+			},
 		}
 }
 
@@ -401,7 +399,7 @@ test_deny_logs_infra_access_missing_permission if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace"],
-				"type": "infrastructure"
+				"type": "infrastructure",
 			}},
 		}
 }
@@ -418,7 +416,7 @@ test_deny_logs_infra_access_wrong_scope if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace"],
-				"type": "application"
+				"type": "application",
 			}},
 		}
 }
@@ -433,9 +431,6 @@ test_allow_audit_access if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {"selectors": {
-				"type": "audit"
-			}},
+			"extras": {"selectors": {"type": "audit"}},
 		}
 }
-
