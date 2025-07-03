@@ -9,7 +9,6 @@ mock_policy := {"spec": {
 		{"kind": "Group", "name": "admins"},
 	],
 	"accessRules": [{
-		"resourceScope": "application",
 		"tenants": ["tenant1"],
 		"namespaces": ["test-namespace"],
 		"signals": ["metrics"],
@@ -23,9 +22,7 @@ mock_policy_with_write := {"spec": {
 		{"kind": "Group", "name": "admins"},
 	],
 	"accessRules": [{
-		"resourceScope": "application",
 		"tenants": ["tenant1"],
-		"namespaces": ["test-namespace"],
 		"signals": ["metrics"],
 		"permission": ["write"],
 	}],
@@ -37,7 +34,6 @@ mock_policy_wildcard_ns := {"spec": {
 		{"kind": "Group", "name": "admins"},
 	],
 	"accessRules": [{
-		"resourceScope": "application",
 		"tenants": ["tenant1"],
 		"namespaces": ["*"],
 		"signals": ["metrics"],
@@ -51,12 +47,32 @@ mock_policy_infra_ns := {"spec": {
 		{"kind": "Group", "name": "admins"},
 	],
 	"accessRules": [{
-		"resourceScope": "application",
 		"tenants": ["tenant1"],
 		"namespaces": ["openshift-monitoring"],
 		"signals": ["metrics"],
 		"permission": ["read"],
 	}],
+}}
+
+mock_policy_multi_permission := {"spec": {
+	"subjects": [
+		{"kind": "User", "name": "alice"},
+		{"kind": "Group", "name": "admins"},
+	],
+	"accessRules": [
+		{
+			"tenants": ["*"],
+			"namespaces": ["dev", "staging"],
+			"signals": ["metrics", "traces"],
+			"permission": ["read"],
+		},
+		{
+			"resourceScope": "infrastructure",
+			"tenants": ["tenant3"],
+			"signals": ["logs"],
+			"permission": ["read"],
+		},
+	],
 }}
 
 mock_policy_logs := {"spec": {
@@ -268,7 +284,7 @@ test_allow_wildcard_namespace_access if {
 
 # Test access openshift namespace access
 test_allow_openshift_namespace_access if {
-	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"wildcard-ns-policy": mock_policy_infra_ns}}
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_policy_infra_ns}}
 		with input as {
 			"subject": "alice",
 			"groups": [],
@@ -277,6 +293,62 @@ test_allow_openshift_namespace_access if {
 			"tenant": "tenant1",
 			"tenantID": "12345",
 			"extras": {"selectors": {"k8s_namespace_name": ["openshift-monitoring"]}},
+		}
+}
+
+# Test access to namespace with missing access
+test_deny_missing_namespace_access if {
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_policy_infra_ns}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {"selectors": {"k8s_namespace_name": ["openshift-monitoring", "test-namespace"]}},
+		}
+}
+
+test_allow_namespace_access_multi_permission_policy if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"multi-perm-policy": mock_policy_multi_permission}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "metrics",
+			"permission": "read",
+			"tenant": "tenant2",
+			"tenantID": "12345",
+			"extras": {"selectors": {"k8s_namespace_name": ["dev"]}},
+		}
+}
+
+test_allow_log_namespace_access_multi_permission_policy if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"multi-perm-policy": mock_policy_multi_permission}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant3",
+			"tenantID": "12345",
+			"extras": {"selectors": {
+				"k8s_namespace_name": ["openshift-monitoring"],
+				"type": "infrastructure",
+				}},
+		}
+}
+
+test_deny_log_namespace_access_multi_permission_policy if {
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"multi-perm-policy": mock_policy_multi_permission}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant3",
+			"tenantID": "12345",
+			"extras": {"selectors": {"k8s_namespace_name": ["dev"]}},
 		}
 }
 
@@ -344,6 +416,10 @@ test_deny_metadata_with_namespace if {
 			},
 		}
 }
+
+# ---------------------------- 
+# ----- Log Access Tests -----
+# ---------------------------- 
 
 # Test allow logs access
 test_allow_logs_access if {
@@ -418,6 +494,40 @@ test_deny_logs_infra_access_wrong_scope if {
 				"k8s_namespace_name": ["openshift-namespace"],
 				"type": "application",
 			}},
+		}
+}
+
+# Test infra access
+test_allow_infra_access if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_policy_logs_infra}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {"selectors": {
+				"k8s_namespace_name": ["openshift-namespace"],
+				"type": "infrastructure"
+				}},
+		}
+}
+
+# Test deny access wrong namespace for infra access
+test_deny_infra_access_wrong_namespace if {
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_policy_logs_infra}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {"selectors": {
+				"k8s_namespace_name": ["openshift-namespace", "test-namespace"],
+				"type": "infrastructure"
+				}},
 		}
 }
 

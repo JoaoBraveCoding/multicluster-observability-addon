@@ -156,6 +156,18 @@ deny[msg] if {
 
 	# Find if the user has applicable rules
 	applicable_rules := rules_that_match(input.subject, input.groups, input.tenant, input.permission, input.resource, application_scope)
+	count(applicable_rules) == 0
+
+	msg := sprintf(missing_query_permissions_for_tenant, [input.resource, application_scope, input.tenant])
+}
+
+deny[msg] if {
+	# Rule 7: Process read requests for scope 'application'
+	input.permission == read_permission
+	is_application_scope(extract_scope(input))
+
+	# Find if the user has applicable rules
+	applicable_rules := rules_that_match(input.subject, input.groups, input.tenant, input.permission, input.resource, application_scope)
 	count(applicable_rules) > 0
 
 	is_logs_application_scope_compliant(input.resource, applicable_rules, application_scope)
