@@ -352,7 +352,7 @@ test_allow_log_namespace_access_multi_permission_policy if {
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-monitoring"],
 				"type": "infrastructure",
-				}},
+			}},
 		}
 }
 
@@ -368,7 +368,7 @@ test_deny_log_namespace_access_multi_permission_policy if {
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["dev"],
 				"type": "application",
-				}},
+			}},
 		}
 }
 
@@ -437,9 +437,9 @@ test_deny_metadata_with_namespace if {
 		}
 }
 
-# ---------------------------- 
+# ----------------------------
 # ----- Log Access Tests -----
-# ---------------------------- 
+# ----------------------------
 
 # Test allow logs access
 test_allow_logs_access if {
@@ -454,7 +454,7 @@ test_allow_logs_access if {
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["test-namespace"],
 				"type": "application",
-				}},
+			}},
 		}
 }
 
@@ -471,7 +471,7 @@ test_deny_logs_access_wrong_namespace if {
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["eve-namespace"],
 				"type": "application",
-				}},
+			}},
 		}
 }
 
@@ -535,8 +535,8 @@ test_allow_infra_access if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace"],
-				"type": "infrastructure"
-				}},
+				"type": "infrastructure",
+			}},
 		}
 }
 
@@ -552,8 +552,8 @@ test_deny_infra_access_wrong_namespace if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace", "test-namespace"],
-				"type": "infrastructure"
-				}},
+				"type": "infrastructure",
+			}},
 		}
 }
 
@@ -650,7 +650,7 @@ test_message_deny_wrong_namespace if {
 			"extras": {"selectors": {"k8s_namespace_name": ["eve-namespace"]}},
 		}
 	count(deny) == 1
-	"Access Denied: You do not have permission to query the signal 'metrics' using the scope 'application' for the tenant 'tenant1'.", true in deny
+	"Access Denied: Your 'metrics' query for the tenant 'tenant1' using the scope 'application' contains the following namespaces that are not allowed to be queried: {\"eve-namespace\"}.", true in deny
 }
 
 test_message_deny_missing_namespace if {
@@ -665,7 +665,7 @@ test_message_deny_missing_namespace if {
 			"extras": {},
 		}
 	count(deny) == 1
-	"Access Denied: You do not have permission to query the signal 'metrics' using the scope 'application' for the tenant 'tenant1'.", true in deny
+	"Access Denied: Your 'metrics' query for the tenant 'tenant1' using the scope 'application' does not specify any namespaces to query.", true in deny
 }
 
 test_message_deny_missing_write_permissions if {
@@ -694,9 +694,9 @@ test_message_deny_infra_access_wrong_namespace if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace", "test-namespace"],
-				"type": "infrastructure"
-				}},
+				"type": "infrastructure",
+			}},
 		}
 	count(deny) == 1
-	"Access Denied: Your query contains namespaces that are not allowed to be queried with the scope 'infrastructure'.", true in deny
+	"Access Denied: Your log query for the tenant 'tenant1' contains the following namespaces that are not allowed for the scope 'infrastructure': {\"test-namespace\"}.", true in deny
 }
