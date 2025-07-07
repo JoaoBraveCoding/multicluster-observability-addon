@@ -351,7 +351,7 @@ test_allow_log_namespace_access_multi_permission_policy if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-monitoring"],
-				"type": "infrastructure",
+				"type": ["infrastructure"],
 			}},
 		}
 }
@@ -367,7 +367,7 @@ test_deny_log_namespace_access_multi_permission_policy if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["dev"],
-				"type": "application",
+				"type": ["application"],
 			}},
 		}
 }
@@ -453,7 +453,7 @@ test_allow_logs_access if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["test-namespace"],
-				"type": "application",
+				"type": ["application"],
 			}},
 		}
 }
@@ -470,7 +470,7 @@ test_deny_logs_access_wrong_namespace if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["eve-namespace"],
-				"type": "application",
+				"type": ["application"],
 			}},
 		}
 }
@@ -501,7 +501,7 @@ test_deny_logs_infra_access_missing_permission if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace"],
-				"type": "infrastructure",
+				"type": ["infrastructure"],
 			}},
 		}
 }
@@ -518,13 +518,13 @@ test_deny_logs_infra_access_wrong_scope if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace"],
-				"type": "application",
+				"type": ["application"],
 			}},
 		}
 }
 
 # Test infra access
-test_allow_infra_access if {
+test_allow_logs_infra_access if {
 	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_policy_logs_infra}}
 		with input as {
 			"subject": "alice",
@@ -535,13 +535,13 @@ test_allow_infra_access if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace"],
-				"type": "infrastructure",
+				"type": ["infrastructure"],
 			}},
 		}
 }
 
 # Test deny access wrong namespace for infra access
-test_deny_infra_access_wrong_namespace if {
+test_deny_logs_infra_access_wrong_namespace if {
 	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"infra-policy": mock_policy_logs_infra}}
 		with input as {
 			"subject": "alice",
@@ -552,8 +552,61 @@ test_deny_infra_access_wrong_namespace if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace", "test-namespace"],
-				"type": "infrastructure",
+				"type": ["infrastructure"],
 			}},
+		}
+}
+
+# Test allow metadataOnly query without namespace
+test_allow_logs_metadata_no_namespace if {
+	authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy_logs}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {"metadataOnly": true},
+		}
+}
+
+# Test deny logs metadata query with namespace but missing type
+test_deny_logs_metadata_valid_namespace_missing_type if {
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy_logs}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"metadataOnly": true,
+				"selectors": {
+					"k8s_namespace_name": ["test-namespace"]
+				}
+			},
+		}
+}
+
+# Test deny logs metadata query with forbiden namespace
+test_deny_logs_metadata_wrong_namespace if {
+	not authz.allow with data.kubernetes.observabilityaccesspolicies as {"test-namespace": {"test-policy": mock_policy_logs}}
+		with input as {
+			"subject": "alice",
+			"groups": [],
+			"resource": "logs",
+			"permission": "read",
+			"tenant": "tenant1",
+			"tenantID": "12345",
+			"extras": {
+				"metadataOnly": true,
+				"selectors": {
+					"k8s_namespace_name": ["eve-namespace"],
+					"type": ["application"],
+				}
+			},
 		}
 }
 
@@ -567,7 +620,7 @@ test_allow_audit_access if {
 			"permission": "read",
 			"tenant": "tenant1",
 			"tenantID": "12345",
-			"extras": {"selectors": {"type": "audit"}},
+			"extras": {"selectors": {"type": ["audit"]}},
 		}
 }
 
@@ -694,7 +747,7 @@ test_message_deny_infra_access_wrong_namespace if {
 			"tenantID": "12345",
 			"extras": {"selectors": {
 				"k8s_namespace_name": ["openshift-namespace", "test-namespace"],
-				"type": "infrastructure",
+				"type": ["infrastructure"],
 			}},
 		}
 	count(deny) == 1

@@ -12,6 +12,7 @@ decision := {
 }
 
 # A request is allowed if there are no deny messages.
+default allow = false
 allow if {
 	count(deny) == 0
 }
@@ -107,6 +108,18 @@ _signal_request_validation(request_input, applicable_rules) := _missing_type_lab
 	# Rule 5: Deny logs read requests that are missing the scope label.
 	request_input.resource == _log_signal
 	request_input.permission == _read_permission
+	not _is_metadata_request(request_input)
+
+	_extract_scope(request_input) == ""
+}
+
+_signal_request_validation(request_input, applicable_rules) := _missing_type_label if {
+	# Rule 5: Deny logs read requests for metadata that specify namespaces
+	request_input.resource == _log_signal
+	request_input.permission == _read_permission
+	_is_metadata_request(request_input)
+	extract_namespaces := _extract_namespaces(request_input)
+	count(extract_namespaces) > 0
 
 	_extract_scope(request_input) == ""
 }
@@ -122,8 +135,7 @@ _signal_request_validation(request_input, applicable_rules) := msg if {
 
 _pre_validate_scope_permissions(request_input, applicable_rules) := msg if {
 	# Pre validation for scope permissions
-	selectors := object.get(request_input.extras, _request_selectors_key, {})
-	request_scope := object.get(selectors, _request_type_label_key, "application")
+	request_scope := _extract_scope_with_default(request_input)
 
 	filtered_applicable_rules := [rule |
 		some rule in applicable_rules
@@ -168,8 +180,7 @@ _validate_application_query(request_input, applicable_rules, request_scope) := m
 }
 
 _validate_application_query(request_input, applicable_rules, request_scope) := msg if {
-	metadata_request := object.get(request_input.extras, _request_metadata_key, false)
-	metadata_request == false
+	not _is_metadata_request(request_input)
 
 	requested_namespaces := _extract_namespaces(request_input)
 	count(requested_namespaces) == 0
@@ -227,6 +238,11 @@ _extract_unauthorized_namespaces(request_input, applicable_rules, scope) := unau
 	}
 }
 
+# _is_metadata_request: True if the request is a metadata request.
+_is_metadata_request(request_input) if {
+	object.get(request_input.extras, _request_metadata_key, false) == true
+}
+
 # _extract_namespaces: Extracts the list of namespaces from the request input.
 _extract_namespaces(request_input) := namespace_list if {
 	selectors := object.get(request_input.extras, _request_selectors_key, {})
@@ -236,7 +252,29 @@ _extract_namespaces(request_input) := namespace_list if {
 # _extract_scope: Extracts the value of the scope label from the request input.
 _extract_scope(request_input) := scope if {
 	selectors := object.get(request_input.extras, _request_selectors_key, {})
-	scope := object.get(selectors, _request_type_label_key, "")
+	scopes := object.get(selectors, _request_type_label_key, [])
+	count(scopes) != 1
+	scope := ""
+}
+
+_extract_scope(request_input) := scope if {
+	selectors := object.get(request_input.extras, _request_selectors_key, {})
+	scopes := object.get(selectors, _request_type_label_key, [])
+	count(scopes) == 1
+	scope := scopes[0]
+}
+
+_extract_scope_with_default(request_input) := scope if {
+	selectors := object.get(request_input.extras, _request_selectors_key, {})
+	scopes := object.get(selectors, _request_type_label_key, [])
+	count(scopes) != 1
+	scope :=  "application"
+}
+_extract_scope_with_default(request_input) := scope if {
+	selectors := object.get(request_input.extras, _request_selectors_key, {})
+	scopes := object.get(selectors, _request_type_label_key, [])
+	count(scopes) == 1
+	scope := scopes[0]
 }
 
 # ---- Tenant Helper Rules ----
