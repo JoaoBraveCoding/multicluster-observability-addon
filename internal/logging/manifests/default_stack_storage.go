@@ -46,6 +46,22 @@ func buildManagedLokistackSpec(opts Options) (lokiv1.LokiStackSpec, error) {
 	lsSpec := opts.DefaultStack.Storage.LokiStack.Spec
 	lsSpec.ManagementState = lokiv1.ManagementStateManaged
 	lsSpec.Tenants = tenants
+	lsSpec.Limits = &lokiv1.LimitsSpec{
+		Global: &lokiv1.LimitsTemplateSpec{
+			OTLP: &lokiv1.OTLPSpec{
+				StreamLabels: &lokiv1.OTLPStreamLabelSpec{
+					ResourceAttributes: []lokiv1.OTLPAttributeReference{
+						{Name: "k8s.namespace.name"},
+						{Name: "log_type"},
+						{Name: "log_source"},
+						{Name: "openshift.cluster.uid"},
+						{Name: "openshift.log.type"},
+						{Name: "openshift.log.source"},
+					},
+				},
+			},
+		},
+	}
 	return lsSpec, nil
 }
 

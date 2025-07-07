@@ -252,27 +252,27 @@ _extract_namespaces(request_input) := namespace_list if {
 # _extract_scope: Extracts the value of the scope label from the request input.
 _extract_scope(request_input) := scope if {
 	selectors := object.get(request_input.extras, _request_selectors_key, {})
-	scopes := object.get(selectors, _request_type_label_key, [])
+	scopes := object.get(selectors, _request_log_type_label_key, [])
 	count(scopes) != 1
 	scope := ""
 }
 
 _extract_scope(request_input) := scope if {
 	selectors := object.get(request_input.extras, _request_selectors_key, {})
-	scopes := object.get(selectors, _request_type_label_key, [])
+	scopes := object.get(selectors, _request_log_type_label_key, [])
 	count(scopes) == 1
 	scope := scopes[0]
 }
 
 _extract_scope_with_default(request_input) := scope if {
 	selectors := object.get(request_input.extras, _request_selectors_key, {})
-	scopes := object.get(selectors, _request_type_label_key, [])
+	scopes := object.get(selectors, _request_log_type_label_key, [])
 	count(scopes) != 1
 	scope :=  "application"
 }
 _extract_scope_with_default(request_input) := scope if {
 	selectors := object.get(request_input.extras, _request_selectors_key, {})
-	scopes := object.get(selectors, _request_type_label_key, [])
+	scopes := object.get(selectors, _request_log_type_label_key, [])
 	count(scopes) == 1
 	scope := scopes[0]
 }

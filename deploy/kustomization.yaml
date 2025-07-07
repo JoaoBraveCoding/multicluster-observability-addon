@@ -3,11 +3,11 @@ images:
   newName: quay.io/jmarcal/multicluster-observability-addon
   newTag: v0.0.1
 
-# - resources/manager_deployment.yaml
 resources:
 - resources/cluster_role_binding.yaml
 - resources/cluster_role.yaml
 - resources/service_account.yaml
+- resources/manager_deployment.yaml
 - resources/cluster-management-addon.yaml
 - resources/addondeploymentconfig.yaml
 - resources/root_certificates.yaml
