@@ -38,7 +38,7 @@ func buildManagedLokistackSpec(opts Options) (lokiv1.LokiStackSpec, error) {
 		Authentication: tenantsAuthentication,
 		Authorization: &lokiv1.AuthorizationSpec{
 			OPA: &lokiv1.OPASpec{
-				URL: fmt.Sprintf("http://%s.%s.svc.cluster.local:8181/v1/data/authz/allow", addoncfg.OpaServiceName, addoncfg.InstallNamespace),
+				URL: fmt.Sprintf("http://%s.%s.svc.cluster.local:8181/v1/data/authz/decision", addoncfg.OpaServiceName, addoncfg.InstallNamespace),
 			},
 		},
 	}

@@ -34,7 +34,7 @@ spec:
           - "--addr=:8181"
           - "--log-level=debug"
           - "/policies/policy.rego"
-          - "--set=default_decision=authz/allow"
+          - "--set=default_decision=authz/decision"
         livenessProbe:
           httpGet:
             path: /health?plugins
